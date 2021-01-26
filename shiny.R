@@ -44,9 +44,9 @@ ui <- fluidPage(
       hr(),
       tags$b("Data was made available by the Genotype-Tissue Expression (GTEx) project and is available from: "),
       #br(),
-      tags$a(href="https://gtexportal.org/home/datasets", "GTEx Portal data")
-      #br(),
-      
+      tags$a(href="https://gtexportal.org/home/datasets", "GTEx Portal data"),
+      hr(),
+      tags$a(href="https://github.com/derekhoward/gtex_enrichment", "Source code")
     ),
     
     # Main panel for displaying outputs ----

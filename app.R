@@ -31,6 +31,12 @@ ui <- fluidPage(
         value = 'THRA\nRTN1\nTUBA1A\nSTMN2\nCRMP1\nTUBB3\nISLR2',
         rows = 10
       ),
+      textAreaInput(
+        inputId = "background_genelist",
+        label = "Background gene list (optional):",
+        value = '',
+        rows = 2
+      ),
       selectInput(
         inputId = 'species',
         label = 'Species of input genes:',
@@ -78,17 +84,26 @@ server <- function(input, output) {
   observeEvent(input$submit, {
     start <- Sys.time()
     
-    cleaned_gene_list <-
-      isolate(process_input_genes(input$genelist))
+    cleaned_gene_list <- isolate(process_input_genes(input$genelist))
+    background_cleaned_gene_list <- isolate(process_input_genes(input$background_genelist))
     
-    # load reference data
-  gtex_expression_ranks <- read_csv(file = './data/processed/gtex_processed_ranks.csv')
-    gene_universe <- read_table('./data/gene_universe.txt', col_names = F) %>% .$X1
+    
+    gtex_expression_ranks <- read_csv(file = './data/processed/gtex_processed_ranks.csv')
+    
+    cleaned_gene_list <- convert2human(input_genes = cleaned_gene_list, in_species = input$species)
+    background_cleaned_gene_list <- convert2human(input_genes = background_cleaned_gene_list, in_species = input$species)
+    
+    first_cleaned_gene_list <- cleaned_gene_list #for printing out the original size
+    
+    if (length(background_cleaned_gene_list) == 1 && background_cleaned_gene_list == "") {
+      gene_universe <- read_table('./data/gene_universe.txt', col_names = F) %>% .$X1
+    } else { #if given a background
+      gene_universe <- background_cleaned_gene_list
+    }
     gtex_expression_ranks %<>% filter(gene_symbol %in% gene_universe)
-    unique_genes <- unique(gtex_expression_ranks$gene_symbol)
-    
-    cleaned_gene_list <-
-      convert2human(input_genes = cleaned_gene_list, in_species = input$species)
+    cleaned_gene_list <- intersect(cleaned_gene_list, gene_universe)
+    #re rank based on new background
+    gtex_expression_ranks %<>% mutate_if(is.numeric, rank)
     
     print(paste0("Before time taken:", Sys.time() - start))
     
@@ -124,16 +139,20 @@ server <- function(input, output) {
       cat(paste("Time taken:", round(Sys.time() - start), "seconds"))
       cat(paste(
         "\nGenes found in data:",
-        sum(cleaned_gene_list %in% unique_genes),
+        length(cleaned_gene_list),
         "of",
-        length(cleaned_gene_list)
+        length(first_cleaned_gene_list)
+      ))
+      cat(paste(
+        "\nBackground genes:", nrow(gtex_expression_ranks)
       ))
     })
     
-    output$view <- renderDataTable({
-      table
-    }, escape = FALSE)
-
+    output$view <- renderDataTable(    table, escape = FALSE, options = list(
+      paging =FALSE,
+      pageLength =  54 
+    ))
+    
     output$download_data <-
       downloadHandler(
         filename = "polygenic_GTEx_results.csv",

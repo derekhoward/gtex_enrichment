@@ -131,7 +131,7 @@ server <- function(input, output) {
     table %<>% arrange(-AUROC)
     table %<>% mutate(pValue = signif(pValue, digits = 3), 
                       AUROC = signif(AUROC, digits = 3),
-                      adjusted_P = signif(p.adjust(pValue), digits = 3))
+                      adjusted_P = signif(p.adjust(pValue, method = "bonferroni"), digits = 3))
     
     
     output$summary <- renderPrint({

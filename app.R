@@ -6,6 +6,7 @@ library(plotly)
 library(tibble)
 library(tidyr)
 library(dplyr)
+library(pheatmap)
 library(purrr)
 #library(shinyjs)
 source("./AUCFunction.R")
@@ -47,6 +48,7 @@ ui <- fluidPage(
       br(),
       br(),
       downloadButton(outputId = "download_data", label = "Download results as .csv"),
+      downloadButton(outputId = "download_heatmap", label = "Download heatmap"),
       hr(),
       tags$b("Data was made available by the Genotype-Tissue Expression (GTEx) project and is available from: "),
       #br(),
@@ -131,7 +133,7 @@ server <- function(input, output) {
     table %<>% arrange(-AUROC)
     table %<>% mutate(pValue = signif(pValue, digits = 3), 
                       AUROC = signif(AUROC, digits = 3),
-                      adjusted_P = signif(p.adjust(pValue), digits = 3))
+                      adjusted_P = signif(p.adjust(pValue, method = "bonferroni"), digits = 3))
     
     
     output$summary <- renderPrint({
@@ -153,6 +155,25 @@ server <- function(input, output) {
       pageLength =  54 
     ))
     
+    #code duplication with HPA 
+    output$download_heatmap <-
+      downloadHandler(
+        filename = "polygenic_GTEx_heatmap.pdf",
+        content = function(file) {
+          df <- as.data.frame(gtex_expression_ranks %>% filter(gene_symbol %in% cleaned_gene_list))
+          rownames(df) <- df$gene_symbol
+          df <- df[ , (names(df) != "gene_symbol"), drop = T]
+          
+          colnames(df) <- gsub("[|]", " ", colnames(df))
+          
+          plot_out <- pheatmap(df, main = paste0("GTEx heatmap for ", length(cleaned_gene_list), " genes\ncolor scale represents specific expression rank (higher is more specific)"))
+          
+          pdf(file, width=1+(23/170) * ncol(df), height=5+nrow(df) *.2)
+          grid::grid.newpage()
+          grid::grid.draw(plot_out$gtable)
+          dev.off()
+        }
+      )
     output$download_data <-
       downloadHandler(
         filename = "polygenic_GTEx_results.csv",
